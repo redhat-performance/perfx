@@ -72,136 +72,30 @@ def _cluster_available():
 
 
 def _collect_cluster_summary():
-    """Collect live cluster data via oc and print a summary using the ocp-data skill parser."""
-    import importlib.util
+    """Run the ocp-analysis skill to print a full cluster summary including C1 tuned check."""
     import subprocess
+    import tempfile
+    import os
 
-    def _oc_json(cmd):
-        """Run an oc command and return parsed JSON or None."""
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            return __import__("json").loads(result.stdout) if result.returncode == 0 else None
-        except Exception:
-            return None
-
-    script = Path(__file__).parent.parent / "skills" / "ocp-data" / "collect_ocp_data.py"
+    script = Path(__file__).parent.parent / "skills" / "ocp-analysis" / "analyze_ocp.py"
     if not script.exists():
         return
     try:
-        spec = importlib.util.spec_from_file_location("collect_ocp_data", script)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        version_data = _oc_json(["oc", "version", "-o", "json"]) or {}
-        csv_data     = _oc_json(["oc", "get", "csv", "-n", "openshift-cnv", "-o", "json"]) or {}
-        nodes_data   = _oc_json(["oc", "get", "nodes", "-o", "json"]) or {}
-        vmis_data    = _oc_json(["oc", "get", "vmi", "-A", "-o", "json"])
-
-        ocpv   = mod.parse_ocp_version(version_data)
-        cnvv   = mod.parse_cnv_version(csv_data)
-        nodes  = mod.parse_nodes(nodes_data)
-        counts = mod.parse_vm_counts(vmis_data) if vmis_data is not None else {}
-
-        if not nodes:
+        # collect nodes.json live
+        nodes_result = subprocess.run(
+            ["oc", "get", "nodes", "-o", "json"],
+            capture_output=True, text=True, timeout=15
+        )
+        if nodes_result.returncode != 0:
             print("⚠️  Could not reach cluster (oc not logged in or unavailable)\n")
             return
 
-        print("─" * 60)
-        print("Cluster Summary")
-        print("─" * 60)
-        print(f"  OCP Version   {ocpv}")
-        print(f"  CNV Version   {cnvv}")
-        print(f"  Total Nodes   {len(nodes)}")
-        print(f"  Total VMs     {sum(counts.values())}")
-        print()
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+            f.write(nodes_result.stdout)
+            nodes_file = f.name
 
-        mod.print_table(nodes, counts)
-        print()
-
-        # ── analysis ──────────────────────────────────────────────────────────
-        print("Cluster Analysis")
-        print("─" * 60)
-        workers  = [n for n in nodes if n["role"] == "worker"]
-        masters  = [n for n in nodes if n["role"] == "control-plane"]
-
-        if workers:
-            cpus = [int(n["cpu"]) for n in workers]
-            mems = [int(n["memory"].replace("Gi", "")) for n in workers]
-            total_vms = sum(counts.values())
-            print(f"  Workers:      {len(workers)} nodes | {cpus[0]} CPUs | {mems[0]}Gi memory each")
-            print(f"  Masters:      {len(masters)} nodes")
-            print(f"  Running VMs:  {total_vms}")
-
-            # check node imbalance
-            vm_per_node = {n["name"]: counts.get(n["name"], 0) for n in workers}
-            if vm_per_node:
-                max_node = max(vm_per_node, key=vm_per_node.get)
-                min_node = min(vm_per_node, key=vm_per_node.get)
-                if vm_per_node[max_node] > vm_per_node[min_node] + 3:
-                    print(f"  ⚠️  VM imbalance: {max_node} has {vm_per_node[max_node]} VMs vs {min_node} has {vm_per_node[min_node]}")
-
-            # check kernel consistency
-            kernels = {n["kernel"] for n in nodes}
-            if len(kernels) > 1:
-                print(f"  ⚠️  Mixed kernel versions: {', '.join(kernels)}")
-            else:
-                print(f"  ✅  Kernel:      consistent ({next(iter(kernels))})")
-
-            # check OS consistency
-            os_versions = {n["os"] for n in nodes}
-            if len(os_versions) > 1:
-                print(f"  ⚠️  Mixed OS versions across nodes")
-            else:
-                print(f"  ✅  OS:          consistent")
-
-        print()
-        print("Recommendations")
-        print("─" * 60)
-        recs = []
-
-        # OCP version
-        if "ec." in ocpv or "alpha" in ocpv or "beta" in ocpv:
-            recs.append(f"⚠️  OCP {ocpv} is a pre-release version — not recommended for production workloads")
-
-        # mixed kernel/OS
-        if workers:
-            kernels = {n["kernel"] for n in nodes}
-            os_versions = {n["os"] for n in nodes}
-            if len(kernels) > 1:
-                recs.append("⚠️  Mixed kernel versions — update all nodes to the same version before investigating performance issues")
-            if len(os_versions) > 1:
-                recs.append("⚠️  Mixed OS versions — some nodes may be pending updates; run `oc adm upgrade` to check")
-
-        # VM imbalance
-        if workers and total_vms > 0:
-            vm_per_node = {n["name"]: counts.get(n["name"], 0) for n in workers}
-            max_vms = max(vm_per_node.values())
-            min_vms = min(vm_per_node.values())
-            if max_vms > min_vms + 3:
-                recs.append(f"⚠️  VM imbalance across worker nodes — check scheduler affinity rules")
-
-        # low VM density
-        if workers and total_vms == 0:
-            recs.append("ℹ️  No VMs running — start a VM to begin performance analysis")
-
-        # memory headroom
-        if workers:
-            for n in workers:
-                alloc_mem = int(n["alloc_mem"].replace("Gi", ""))
-                total_mem = int(n["memory"].replace("Gi", ""))
-                overhead = total_mem - alloc_mem
-                if overhead > 30:
-                    recs.append(f"ℹ️  {n['name']}: {overhead}Gi reserved as system overhead — expected for large nodes")
-                    break
-
-        if recs:
-            for r in recs:
-                print(f"  {r}")
-        else:
-            print("  ✅  Cluster looks healthy — no issues detected")
-
-        print("─" * 60)
-        print()
+        subprocess.run(["python3", str(script), "--nodes", nodes_file])
+        os.unlink(nodes_file)
 
     except Exception as exc:
         log.debug("Cluster summary failed: %s", exc)

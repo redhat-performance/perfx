@@ -192,6 +192,23 @@ def main():
 
     analyze(nodes, counts, ocpv, cnvv)
 
+    # ── C1 tuned check ────────────────────────────────────────────────────────
+    import subprocess
+    r = subprocess.run(
+        ["oc", "get", "profile.tuned.openshift.io",
+         "-n", "openshift-cluster-node-tuning-operator", "--no-headers"],
+        capture_output=True, text=True, timeout=15
+    )
+    print("\nHost Tuning")
+    print("─" * 50)
+    if r.returncode != 0:
+        print("  ℹ️   Cannot check C1 tuned — oc not available")
+    elif any("c1-lowlatency" in line for line in r.stdout.splitlines()):
+        print("  ✅  c1-lowlatency applied — CPUs pinned to C1 for low latency")
+    else:
+        print("  ⚠️   c1-lowlatency NOT applied")
+        print("       → Run: oc apply -f skills/ocp-analysis/tuned-c1.yaml")
+
 
 if __name__ == "__main__":
     main()

@@ -1,12 +1,12 @@
-"""Tests for skills/ocp-data/collect_ocp_data.py — integration tests using local JSON fixtures."""
+"""Tests for skills/ocp-analysis/analyze_ocp.py — integration tests using local JSON fixtures."""
 import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).parent.parent.parent.parent / "skills" / "ocp-data" / "collect_ocp_data.py"
-spec = importlib.util.spec_from_file_location("collect_ocp_data", SCRIPT)
+SCRIPT = Path(__file__).parent.parent.parent.parent / "skills" / "ocp-analysis" / "analyze_ocp.py"
+spec = importlib.util.spec_from_file_location("analyze_ocp", SCRIPT)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 

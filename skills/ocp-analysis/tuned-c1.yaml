@@ -1,0 +1,19 @@
+apiVersion: tuned.openshift.io/v1
+kind: Tuned
+metadata:
+  name: c1-lowlatency
+  namespace: openshift-cluster-node-tuning-operator
+spec:
+  profile:
+  - data: |
+      [main]
+      summary=Pins to C1 cstate for low latency
+      include=openshift-node
+      [cpu]
+      force_latency=1
+    name: c1-lowlatency
+  recommend:
+  - machineConfigLabels:
+      machineconfiguration.openshift.io/role: "worker"
+    priority: 20
+    profile: c1-lowlatency

@@ -45,6 +45,7 @@ When adding or editing a file in `rules/` or `methodology/`:
 - `rules/linux-vm-template.yaml` → `skills/vm-config/SKILL.md`
 - New rule for memory → `skills/memory-analysis/SKILL.md`, `skills/delta-analysis/SKILL.md`
 - New rule for network → `skills/network-analysis/SKILL.md`
+- `rules/host-tuning.md` → `skills/ocp-analysis/SKILL.md`
 - New methodology file → all relevant skills that cover that topic
 
 Do NOT report a task done if a new rule was added without updating the corresponding SKILL.md files.
