@@ -1,9 +1,9 @@
 # VM Configuration and Tuning Guide
 
-Reference: https://developers.redhat.com/blog/2026/05/06/best-practice-configuration-and-tuning-linux-and-windows-vms#vm_definition
+VM configuration: https://developers.redhat.com/blog/2026/05/06/best-practice-configuration-and-tuning-linux-and-windows-vms#vm_definition
 Tuning & Scaling Guide: https://access.redhat.com/articles/6994974
 VirtualMachinePreference customization: https://access.redhat.com/solutions/7123335
-
+IOThreads: https://developers.redhat.com/blog/2025/06/23/feature-introduction-multiple-iothreads-openshift-virtualization
 ---
 
 ## Step 1 — Apply a VirtualMachineClusterPreference
@@ -173,9 +173,13 @@ resources:
 
 ---
 
-# Windows VM-Specific Configuration
+## Windows VM-Specific Configuration
+
+The following steps apply specifically to Windows VMs for optimal performance.
 
 Reference: https://developers.redhat.com/blog/2026/05/06/best-practice-configuration-and-tuning-linux-and-windows-vms#vm_definition
+
+---
 
 ## Step 9 — Hyperv Enlightenments (Windows Only)
 
@@ -420,3 +424,173 @@ spec:
 1. `bcdedit /deletevalue useplatformclock` (reboot)
 2. Disable VBS via Windows Security (reboot)
 3. Verify hyperv detected: `Get-ComputerInfo | Select "HyperV*"`
+
+---
+
+## Linux VM-Specific Configuration
+
+The following steps apply specifically to Linux VMs for optimal performance.
+
+Reference: https://developers.redhat.com/blog/2026/05/06/best-practice-configuration-and-tuning-linux-and-windows-vms#vm_definition
+
+---
+
+## Step 16 — Multi-Queue Settings (Linux Only)
+
+Enable parallel I/O processing across multiple CPU cores:
+
+```yaml
+devices:
+  blockMultiQueue: true              # Disk multi-queue
+  networkInterfaceMultiqueue: true   # Network multi-queue
+```
+
+**Why this matters:**
+- **blockMultiQueue**: Enables multiple disk I/O queues (one per vCPU)
+- **networkInterfaceMultiqueue**: Parallel network packet processing
+- **Impact**: 2-3× throughput improvement on multi-core VMs
+
+**Verification inside Linux VM:**
+```bash
+# Check disk multi-queue is active
+ls /sys/block/vda/mq/
+# Should show multiple queues: 0/ 1/ 2/ ...
+
+# Check network queues
+ethtool -l eth0
+```
+
+---
+
+## Step 17 — Disk Cache Mode (Linux Only)
+
+For Linux VMs, set disk cache to `none` to prevent buffered I/O issues after live migration:
+
+```yaml
+disks:
+- name: rootdisk
+  disk:
+    bus: virtio
+    cache: none    # Critical for data integrity
+```
+
+**Why cache: none:**
+- Prevents guest OS page cache inconsistency after live migration
+- Direct I/O to storage backend
+- Required for data integrity on databases
+
+**Without it**: Risk of data corruption if VM is live migrated during writes.
+
+---
+
+## Step 18 — Dedicated CPU Placement (Linux Only)
+
+For latency-sensitive Linux workloads (databases, real-time):
+
+```yaml
+cpu:
+  dedicatedCpuPlacement: true
+  sockets: 1
+  cores: 24
+  threads: 1    # Always 1 for performance
+```
+
+**Why this matters:**
+- Pins vCPUs to dedicated physical CPUs
+- Prevents scheduler interference
+- Reduces jitter and improves latency consistency
+
+**Trade-offs:**
+- Not compatible with `ioThreadsPolicy: supplementalPool`
+- Reduces cluster CPU efficiency (no overcommit)
+- Use only for workloads that need guaranteed low latency
+
+---
+
+## Step 19 — Resource Guarantees (Linux Only)
+
+Set requests = limits for guaranteed QoS:
+
+```yaml
+resources:
+  requests:
+    cpu: "24"
+    memory: 64Gi
+  limits:
+    cpu: "24"        # Same as requests
+    memory: 64Gi     # Same as requests
+```
+
+**Why requests = limits:**
+- Guaranteed QoS class (highest priority)
+- No CPU throttling
+- Memory won't be reclaimed
+- Required for consistent benchmark results
+
+---
+
+## Step 20 — evictionStrategy (Linux Only)
+
+Always set evictionStrategy for production Linux VMs:
+
+```yaml
+spec:
+  evictionStrategy: LiveMigrate
+```
+
+**Why this matters:**
+- Ensures VM is live migrated (not shut down) when node is drained
+- Prevents downtime during cluster maintenance
+- Critical for production workloads
+
+---
+
+## Complete Linux VM Example
+
+Minimal optimized Linux VM configuration:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: linux-perf-vm
+spec:
+  preference:
+    name: rhel.9.virtio    # Auto-applies most settings
+  template:
+    spec:
+      evictionStrategy: LiveMigrate
+      domain:
+        devices:
+          blockMultiQueue: true
+          networkInterfaceMultiqueue: true
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+              cache: none    # Critical for Linux
+          interfaces:
+          - name: default
+            model: virtio
+        cpu:
+          sockets: 1
+          cores: 24
+          threads: 1
+          dedicatedCpuPlacement: true    # For low-latency workloads
+        ioThreads:
+          supplementalPoolThreadCount: 6    # ~vCPUs/4
+        ioThreadsPolicy: supplementalPool   # Note: not compatible with dedicatedCpuPlacement
+        machine:
+          type: q35
+        resources:
+          requests:
+            cpu: "24"
+            memory: 64Gi
+          limits:
+            cpu: "24"
+            memory: 64Gi
+```
+
+**Note**: The example above shows `dedicatedCpuPlacement: true` OR `ioThreadsPolicy: supplementalPool` — choose one based on your workload:
+- **Use dedicatedCpuPlacement** for latency-sensitive workloads (databases)
+- **Use ioThreadsPolicy** for I/O-intensive workloads (file servers, data processing)
