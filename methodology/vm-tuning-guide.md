@@ -117,6 +117,12 @@ Verify C-states after applying:
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency
 # Expected: only POLL (0us) and C1 (1us)
+
+# Intel CPUs: check C1 demotion (optional but recommended)
+cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
+# Expected: 1 (enabled)
+# When enabled: CPU can demote from deep C-states (C3/C6) to C1 instead of C0
+# Benefit: Lower exit latency (C1 ~1μs vs C3/C6 ~80-200μs)
 ```
 
 ---
