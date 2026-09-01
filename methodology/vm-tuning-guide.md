@@ -93,11 +93,24 @@ If you suspect performance regression is due to CPUs falling into deeper C-state
 **Step 1: Try intel_c1_demotion first (Intel CPUs only)**
 
 Check and enable C1 demotion feature:
+
+**On bare KVM hosts:**
 ```bash
 # Check current value
 cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 # If 0, enable it:
 echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion
+```
+
+**On OpenShift/OCP nodes:**
+```bash
+# Check current value
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
+
+# If 0, enable it:
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
 ```
 
 **What it does**: Lets CPU "hang around in C1" longer if C1 was recently used, avoiding deeper C-states (C3/C6).
@@ -136,11 +149,20 @@ spec:
 ```
 
 **Option B: Dynamically disable deep C-states**
+
+**On bare KVM hosts:**
 ```bash
 # Disable state2 (C1E) and state3 (C3/C6) to achieve C1 pinning
 for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state{2,3}; do
   echo 1 > $cpu/disable
 done
+```
+
+**On OpenShift/OCP nodes:**
+```bash
+# Disable state2 (C1E) and state3 (C3/C6) to achieve C1 pinning
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state{2,3}; do echo 1 > \$cpu/disable; done"
 ```
 
 **CRITICAL**: C1 pinning is a **triage step only** — use it to confirm C-states are the root cause, then investigate the underlying issue (bad kernel patch, BIOS settings, etc.). Do NOT deploy C1 pinning to production.
@@ -149,15 +171,42 @@ done
 
 ### Verification
 
+**On bare KVM hosts or from sosreport:**
 ```bash
-# Check active C-states (from sosreport or live host)
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency
 # Expected with C1 pinning: only POLL (0us) and C1 (1us)
 
+# Check which states are disabled (0 = enabled, 1 = disabled)
+for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do
+  echo "$f: $(cat $f)"
+done
+
 # Check C1 demotion status (Intel CPUs)
 cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 # Expected: 1 (enabled)
+```
+
+**On OpenShift/OCP nodes:**
+```bash
+# Check C-state disable flags (0 = enabled, 1 = disabled)
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do echo \$f: \$(cat \$f); done"
+
+# Expected output (all C-states enabled):
+# /sys/devices/system/cpu/cpu0/cpuidle/state0/disable: 0  (POLL)
+# /sys/devices/system/cpu/cpu0/cpuidle/state1/disable: 0  (C1)
+# /sys/devices/system/cpu/cpu0/cpuidle/state2/disable: 0  (C1E)
+# /sys/devices/system/cpu/cpu0/cpuidle/state3/disable: 0  (C3/C6)
+
+# With C1 pinning, state2 and state3 should be: 1 (disabled)
+
+# Check C-state names and latency
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name"
+
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency"
 ```
 
 ---

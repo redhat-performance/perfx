@@ -60,36 +60,78 @@ See `methodology/vmexit-analysis.md` for detailed vmexit interpretation.
 **Investigation steps:**
 
 **Check current C-states:**
+
+**On bare KVM hosts or from sosreport:**
 ```bash
-# On KVM host
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency
-
 # Expected for latency-sensitive workloads: only POLL and C1
+
+# Check which states are disabled (0 = enabled, 1 = disabled)
+for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do
+  echo "$f: $(cat $f)"
+done
+```
+
+**On OpenShift/OCP nodes:**
+```bash
+# Check C-state disable flags
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do echo \$f: \$(cat \$f); done"
+
+# Output shows: 0 = enabled, 1 = disabled
+# state0 (POLL), state1 (C1), state2 (C1E), state3 (C3/C6)
 ```
 
 **Check intel_c1_demotion (Intel CPUs only):**
+
+**On bare KVM hosts:**
 ```bash
 cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
+# Expected: 1 (enabled)
+```
+
+**On OpenShift/OCP nodes:**
+```bash
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
 # Expected: 1 (enabled)
 ```
 
 **Troubleshooting C-state-related I/O degradation:**
 
 **Step 1: Enable intel_c1_demotion** (try this first)
+
+**On bare KVM hosts:**
 ```bash
 echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 ```
+
+**On OpenShift/OCP nodes:**
+```bash
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
+```
+
 - Rerun I/O tests
 - If performance improves → C-states were causing the degradation
 
 **Step 2: Force C1 pinning** (triage ONLY, not for production)
+
+**On bare KVM hosts:**
 ```bash
-# Dynamically disable deep C-states
+# Dynamically disable deep C-states (state2 = C1E, state3 = C3/C6)
 for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state{2,3}; do
   echo 1 > $cpu/disable
 done
 ```
+
+**On OpenShift/OCP nodes:**
+```bash
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state{2,3}; do echo 1 > \$cpu/disable; done"
+```
+
 - Rerun I/O tests
 - If performance improves → confirms C-states are the root cause
 - Investigate underlying issue (kernel patch, BIOS settings, etc.)
@@ -275,24 +317,60 @@ When investigating I/O degradation, check in this order:
 
 ## Reference Commands
 
+**Collect I/O metrics:**
 ```bash
-# Collect I/O metrics
 virsh domstats <vm_name> > domstats.log
+```
 
-# Collect vmexit stats
+**Collect vmexit stats (on KVM host):**
+```bash
 cat /sys/kernel/debug/kvm/*/vcpu*/vmexit > vmexit_stats.txt
+```
 
-# Check C-states
+**Check C-states (bare KVM hosts):**
+```bash
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency
 
-# Check intel_c1_demotion
+# Check disable flags (0 = enabled, 1 = disabled)
+for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do
+  echo "$f: $(cat $f)"
+done
+```
+
+**Check C-states (OpenShift/OCP nodes):**
+```bash
+# Check C-state disable flags
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/disable; do echo \$f: \$(cat \$f); done"
+
+# Check C-state names and latency
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name"
+```
+
+**Check intel_c1_demotion:**
+```bash
+# Bare KVM hosts
 cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 
-# Enable intel_c1_demotion
+# OpenShift/OCP nodes
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
+```
+
+**Enable intel_c1_demotion:**
+```bash
+# Bare KVM hosts
 echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 
-# Check VM config
+# OpenShift/OCP nodes
+oc debug node/<worker-node> -- chroot /host bash -c \
+  "echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion"
+```
+
+**Check VM config:**
+```bash
 oc get vm <vm_name> -o yaml | grep -E "ioThreadsPolicy|blockMultiQueue|autoattachMemBalloon"
 ```
 
