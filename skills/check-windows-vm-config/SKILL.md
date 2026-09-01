@@ -7,6 +7,10 @@ Check Windows VM YAML configuration against `rules/windows-vm-checks.yaml`.
 - `rules/windows-vm-checks.yaml` — defines all required Windows VM settings to validate
 - `rules/windows-vm-example.yaml` — reference Windows VM configuration
 
+## Methodology
+
+- Read `methodology/vm-tuning-guide.md` for background on Windows VM performance tuning (hyperv enlightenments, ioThreads, C-states)
+
 ## Steps
 
 1. Run the check:
