@@ -146,6 +146,50 @@ See `methodology/vm-tuning-guide.md` Step 5 for detailed C-state tuning.
 
 **Common VM config issues that cause I/O degradation:**
 
+**Windows VMs: Verify hyperv enlightenments are active**
+
+If you have a Windows VM with I/O or CPU degradation, verify that hyperv enlightenments are actually running (not just configured in YAML).
+
+**On the KVM host while VM is running:**
+```bash
+# Windows VMs only - run while VM is running
+ps -eaf |grep qemu-kvm |sed -e 's/,/ /g' |xargs -n1 |grep hv- | sort | uniq -c
+```
+
+**Expected output** (hyperv enlightenments active):
+```
+      1 hv-frequencies=on
+      1 hv-ipi=on
+      1 hv-reenlightenment=on
+      1 hv-relaxed=on
+      1 hv-reset=on
+      1 hv-runtime=on
+      1 hv-spinlocks=0x1fff
+      1 hv-stimer-direct=on
+      1 hv-stimer=on
+      1 hv-synic=on
+      1 hv-time=on
+      1 hv-tlbflush=on
+      1 hv-vapic=on
+      1 hv-vpindex=on
+```
+
+**Key features to verify:**
+- `hv-spinlocks=0x1fff` (hex for 8191) — must be exactly this value
+- `hv-stimer-direct=on` — direct mode for synthetic timer (low latency)
+- `hv-relaxed=on`, `hv-vapic=on`, `hv-vpindex=on` — critical for performance
+
+**If missing or incomplete:**
+- Check VM YAML: `oc get vm <vm_name> -o yaml | grep -A20 "features:"`
+- Verify VirtualMachineClusterPreference is applied: `oc get vm <vm_name> -o yaml | grep preference`
+- Restart VM to apply hyperv features
+
+**Missing enlightenments cause 30-40% performance degradation** on Windows VMs.
+
+See `methodology/vm-tuning-guide.md` Step 9 for required hyperv settings.
+
+---
+
 **ioThreads not configured:**
 ```bash
 # Check if ioThreadsPolicy is set in VM YAML
@@ -372,6 +416,14 @@ oc debug node/<worker-node> -- chroot /host bash -c \
 **Check VM config:**
 ```bash
 oc get vm <vm_name> -o yaml | grep -E "ioThreadsPolicy|blockMultiQueue|autoattachMemBalloon"
+```
+
+**Verify hyperv enlightenments are active (Windows VMs only):**
+```bash
+# Windows VMs only - run from KVM host while VM is running
+ps -eaf |grep qemu-kvm |sed -e 's/,/ /g' |xargs -n1 |grep hv- | sort | uniq -c
+
+# Expected: 14 hv-* flags with =on, including hv-spinlocks=0x1fff and hv-stimer-direct=on
 ```
 
 ---

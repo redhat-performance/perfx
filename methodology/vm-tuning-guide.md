@@ -314,6 +314,43 @@ msinfo32
 # Look for "Hyper-V Requirements" section
 ```
 
+**Verification from KVM host (Windows VMs only - while VM is running):**
+
+If you have Windows VM I/O or CPU degradation, verify hyperv enlightenments are **actually active** on the running qemu process:
+
+```bash
+# Windows VMs only - run while VM is running
+ps -eaf |grep qemu-kvm |sed -e 's/,/ /g' |xargs -n1 |grep hv- | sort | uniq -c
+```
+
+**Expected output:**
+```
+      1 hv-frequencies=on
+      1 hv-ipi=on
+      1 hv-reenlightenment=on
+      1 hv-relaxed=on
+      1 hv-reset=on
+      1 hv-runtime=on
+      1 hv-spinlocks=0x1fff
+      1 hv-stimer-direct=on
+      1 hv-stimer=on
+      1 hv-synic=on
+      1 hv-time=on
+      1 hv-tlbflush=on
+      1 hv-vapic=on
+      1 hv-vpindex=on
+```
+
+**Critical flags:**
+- `hv-spinlocks=0x1fff` (hex for 8191) — must be exactly this value
+- `hv-stimer-direct=on` — direct mode for synthetic timer (low latency)
+- `hv-relaxed=on`, `hv-vapic=on`, `hv-vpindex=on` — required for 30-40% performance gain
+
+**If missing or incomplete:**
+- Check VM YAML: `oc get vm <vm_name> -o yaml | grep -A20 "features:"`
+- Verify VirtualMachineClusterPreference is applied: `oc get vm <vm_name> -o yaml | grep preference`
+- Restart VM to apply hyperv features
+
 ---
 
 ## Step 10 — Clock Configuration (Windows Only)
