@@ -86,9 +86,33 @@ tuned-adm active
 
 ## Step 5 — Host C-state tuning (latency-sensitive workloads)
 
-For MSSQL and other latency-sensitive workloads, limit CPU sleep depth to C1.
-The OCP-native way (no reboot required) is via the Node Tuning Operator:
+### Troubleshooting C-state-related performance regressions
 
+If you suspect performance regression is due to CPUs falling into deeper C-states than expected, use this two-step triage workflow:
+
+**Step 1: Try intel_c1_demotion first (Intel CPUs only)**
+
+Check and enable C1 demotion feature:
+```bash
+# Check current value
+cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
+# If 0, enable it:
+echo 1 > /sys/devices/system/cpu/cpuidle/intel_c1_demotion
+```
+
+**What it does**: Lets CPU "hang around in C1" longer if C1 was recently used, avoiding deeper C-states (C3/C6).
+
+**Why this first**: Intel invested heavily in this (Ice Lake+) — provides latency benefit WITHOUT the heavy power consumption of C1 pinning.
+
+**After enabling**: Rerun your tests. If performance improves, C-states were the issue.
+
+---
+
+**Step 2: C1 pinning (triage ONLY, not for production)**
+
+If intel_c1_demotion doesn't resolve it, force C1 pinning for troubleshooting.
+
+**Option A: Via tuned (OCP-native, no reboot)**
 ```yaml
 apiVersion: tuned.openshift.io/v1
 kind: Tuned
@@ -111,18 +135,29 @@ spec:
     profile: c1-lowlatency
 ```
 
-Verify C-states after applying:
+**Option B: Dynamically disable deep C-states**
 ```bash
-# From sosreport or live host:
+# Disable state2 (C1E) and state3 (C3/C6) to achieve C1 pinning
+for cpu in /sys/devices/system/cpu/cpu*/cpuidle/state{2,3}; do
+  echo 1 > $cpu/disable
+done
+```
+
+**CRITICAL**: C1 pinning is a **triage step only** — use it to confirm C-states are the root cause, then investigate the underlying issue (bad kernel patch, BIOS settings, etc.). Do NOT deploy C1 pinning to production.
+
+---
+
+### Verification
+
+```bash
+# Check active C-states (from sosreport or live host)
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/name
 cat /sys/devices/system/cpu/cpu0/cpuidle/state*/latency
-# Expected: only POLL (0us) and C1 (1us)
+# Expected with C1 pinning: only POLL (0us) and C1 (1us)
 
-# Intel CPUs: check C1 demotion (optional but recommended)
+# Check C1 demotion status (Intel CPUs)
 cat /sys/devices/system/cpu/cpuidle/intel_c1_demotion
 # Expected: 1 (enabled)
-# When enabled: CPU can demote from deep C-states (C3/C6) to C1 instead of C0
-# Benefit: Lower exit latency (C1 ~1μs vs C3/C6 ~80-200μs)
 ```
 
 ---
