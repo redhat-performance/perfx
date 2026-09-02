@@ -55,7 +55,7 @@ def _build_system_instruction() -> str:
         "3. If more than 1 VM is found — list all VMs clearly (namespace, name, status) and ask the user which one to analyze. Once user chooses, call fetch_cluster_vm_yaml then analyze. "
         "4. If no VMs found — tell the user no VMs are running on the cluster. "
         "For ALL VM YAML checks (file path, cluster, or Google Drive) — ALWAYS use check_vm_config_from_content(yaml_content, os_type). "
-        "Never call check_vm_config or check_linux_vm_config directly — they are missing guest-side steps. "
+        "Never call check_vm_config or validate_linux_vm_config directly — they are missing guest-side steps. "
         "To get yaml_content: use read_file for local paths, fetch_cluster_vm_yaml for cluster VMs, read_gdrive for Drive files. "
         "To determine os_type: if the user says 'windows' use os_type='windows'; if 'linux' use os_type='linux'; otherwise ask 'Is this a Windows or Linux VM?'. "
         "After the tool runs, ALWAYS display: "

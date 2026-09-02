@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Check Windows VM YAML configuration against rules/windows-vm-checks.yaml.
-Usage: python3 check_windows_vm_config.py <customer-vm.yaml>
-Add new checks by editing rules/windows-vm-checks.yaml — no Python change needed.
+Validate Windows VM YAML configuration against windows-vm-validation.yaml.
+Usage: python3 validate_windows_vm_config.py <customer-vm.yaml>
+Add new checks by editing windows-vm-validation.yaml — no Python change needed.
 """
 import os
 import sys
@@ -18,9 +18,8 @@ except ImportError:
     sys.exit(1)
 
 
-RULES_DIR   = Path(__file__).parent.parent.parent / "rules"
 LOGS_DIR    = Path(os.environ.get("PERFX_LOGS_DIR", Path(__file__).parent.parent.parent / "logs"))
-CHECKS_FILE = RULES_DIR / "windows-vm-checks.yaml"
+CHECKS_FILE = Path(__file__).parent / "windows-vm-validation.yaml"
 
 
 def _load(path):
@@ -659,7 +658,7 @@ def main():
     vm_path    = args.vm_yaml
     detected_os = args.os or _detect_os(vm_path)
     if detected_os == "linux":
-        print("ERROR: VM detected as Linux — use check_linux_vm_config.py for Linux VMs.",
+        print("ERROR: VM detected as Linux — use validate_linux_vm_config.py for Linux VMs.",
               file=sys.stderr)
         sys.exit(1)
     if detected_os == "unknown":

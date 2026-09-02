@@ -1,4 +1,4 @@
-"""Tests for skills/check-linux-vm-config/check_linux_vm_config.py"""
+"""Tests for skills/validate-linux-vm-config/validate_linux_vm_config.py"""
 import importlib.util
 import re
 import textwrap
@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-SCRIPT = Path(__file__).parent.parent.parent.parent.parent / "skills" / "check-linux-vm-config" / "check_linux_vm_config.py"
-spec = importlib.util.spec_from_file_location("check_linux_vm_config", SCRIPT)
+SCRIPT = Path(__file__).parent.parent.parent.parent.parent / "skills" / "validate-linux-vm-config" / "validate_linux_vm_config.py"
+spec = importlib.util.spec_from_file_location("validate_linux_vm_config", SCRIPT)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 

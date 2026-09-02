@@ -1,5 +1,5 @@
 from google.genai import types as gtypes
-from perfx.vm_config_tool import check_vm_config, check_linux_vm_config, detect_os, check_vm_config_from_content, check_vm_config_from_path
+from perfx.vm_config_tool import check_vm_config, validate_linux_vm_config, detect_os, check_vm_config_from_content, check_vm_config_from_path
 from perfx.knowledge_tool import read_rules, read_file
 from perfx.cluster_tool import list_cluster_vms, fetch_cluster_vm_yaml
 from perfx.gdrive.gdrive import list_gdrive_folder, read_gdrive, search_gdrive
@@ -29,7 +29,7 @@ DISPATCH = {
     "list_gdrive_folder": list_gdrive_folder,
     "search_gdrive": search_gdrive,
     "check_vm_config": check_vm_config,
-    "check_linux_vm_config": check_linux_vm_config,
+    "validate_linux_vm_config": validate_linux_vm_config,
     "detect_os": detect_os,
     "check_vm_config_from_path": check_vm_config_from_path,
     "check_vm_config_from_content": check_vm_config_from_content,
@@ -173,7 +173,7 @@ TOOL_DECLARATIONS = [
                 name="fetch_cluster_vm_yaml",
                 description=(
                     "Fetch a VM YAML from the OCP cluster by name and namespace, save to a temp file, "
-                    "and return the file path. Use this before calling check_vm_config or check_linux_vm_config."
+                    "and return the file path. Use this before calling check_vm_config or validate_linux_vm_config."
                 ),
                 parameters=gtypes.Schema(
                     type=gtypes.Type.OBJECT,
@@ -203,7 +203,7 @@ TOOL_DECLARATIONS = [
                 ),
             ),
             gtypes.FunctionDeclaration(
-                name="check_linux_vm_config",
+                name="validate_linux_vm_config",
                 description=(
                     "Audit a Linux VM YAML configuration against benchmark-runner best practices. "
                     "Checks disk bus (virtio), network model (virtio), CPU requests/limits, "
@@ -411,7 +411,7 @@ ANTHROPIC_TOOLS = [
      "description": "List all VMs running on the connected OCP cluster. Call this when the user asks to check a VM YAML and has not provided a file path.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "fetch_cluster_vm_yaml",
-     "description": "Fetch a VM YAML from the OCP cluster by name and namespace, save to a temp file, and return the file path. Use this before calling check_vm_config or check_linux_vm_config.",
+     "description": "Fetch a VM YAML from the OCP cluster by name and namespace, save to a temp file, and return the file path. Use this before calling check_vm_config or validate_linux_vm_config.",
      "input_schema": {"type": "object", "properties": {
          "name":      {"type": "string", "description": "VM name"},
          "namespace": {"type": "string", "description": "Namespace the VM is in"}
@@ -419,7 +419,7 @@ ANTHROPIC_TOOLS = [
     {"name": "check_vm_config",
      "description": "Audit a Windows VM YAML configuration against the recommended template. Checks hyperv enlightenments, clock timers, ioThreads, autoattachMemBalloon, machine type, firmware, and disk bus. Saves report to logs/.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string", "description": "Absolute path to the Windows VM YAML file"}}, "required": ["path"]}},
-    {"name": "check_linux_vm_config",
+    {"name": "validate_linux_vm_config",
      "description": "Audit a Linux VM YAML configuration against benchmark-runner best practices. Checks disk bus (virtio), network model, CPU requests/limits, dedicatedCpuPlacement, ioThreadsPolicy, machine type, evictionStrategy. Saves report to logs/.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string", "description": "Absolute path to the Linux VM YAML file"}}, "required": ["path"]}},
     {"name": "github_get_issue", "description": "Fetch a single GitHub issue or PR by repository and issue number.", "input_schema": {"type": "object", "properties": {"repo": {"type": "string", "description": "owner/repo"}, "number": {"type": "integer", "description": "Issue or PR number"}}, "required": ["repo", "number"]}},
