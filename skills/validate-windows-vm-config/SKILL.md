@@ -1,10 +1,10 @@
-# /check-windows-vm-config
+# /validate-windows-vm-config
 
-Check Windows VM YAML configuration against `rules/windows-vm-checks.yaml`.
+Validate Windows VM YAML configuration against validation rules.
 
 ## Rules
 
-- `rules/windows-vm-checks.yaml` — defines all required Windows VM settings to validate
+- `windows-vm-validation.yaml` — defines all required Windows VM settings to validate (in this skill directory)
 - `rules/windows-vm-example.yaml` — reference Windows VM configuration
 
 ## Methodology
@@ -13,9 +13,9 @@ Check Windows VM YAML configuration against `rules/windows-vm-checks.yaml`.
 
 ## Steps
 
-1. Run the check:
+1. Run the validation:
    ```bash
-   python3 skills/check-windows-vm-config/check_windows_vm_config.py <vm.yaml>
+   python3 skills/validate-windows-vm-config/validate_windows_vm_config.py <vm.yaml>
    ```
 
 2. Report findings to the user — include table, recommendations, and guest-side steps
@@ -31,5 +31,5 @@ Check Windows VM YAML configuration against `rules/windows-vm-checks.yaml`.
 
 ## Notes
 
-- For Linux VMs use `skills/check-linux-vm-config/`
+- For Linux VMs use `skills/validate-linux-vm-config/`
 - Corrected YAML is valid YAML-only — apply with `oc apply -f <yaml_file>`

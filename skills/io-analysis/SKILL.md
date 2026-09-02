@@ -114,4 +114,4 @@ oc get vm <vm_name> -o yaml
 
 - **Vmexit analysis**: `methodology/vmexit-analysis.md` — HLT, EPT_VIOLATION, EXTERNAL_INTERRUPT
 - **VM tuning**: `methodology/vm-tuning-guide.md` — Steps 2, 5, 6, 12, 16, 17
-- **VM config checks**: `/check-windows-vm-config`, `/check-linux-vm-config`
+- **VM config validation**: `/validate-windows-vm-config`, `/validate-linux-vm-config`

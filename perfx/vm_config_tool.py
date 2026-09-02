@@ -287,7 +287,7 @@ def check_vm_config(path: str) -> dict:
     }
 
 
-def check_linux_vm_config(path: str) -> dict:
+def validate_linux_vm_config(path: str) -> dict:
     """Audit a KubeVirt Linux VM YAML and return a comparison table."""
     try:
         doc = _load_yaml(path)
@@ -426,9 +426,9 @@ def check_vm_config_from_path(path: str, os_type: str = None) -> dict:
 
 
 def _run_vm_config_check(path: str, os_type: str = None, cleanup: bool = False) -> dict:
-    """Run the appropriate VM config skill script (check-windows-vm-config or check-linux-vm-config).
+    """Run the appropriate VM config skill script (validate-windows-vm-config or validate-linux-vm-config).
 
-    Routes to check_linux_vm_config.py for Linux, check_windows_vm_config.py for Windows/unknown.
+    Routes to validate_linux_vm_config.py for Linux, validate_windows_vm_config.py for Windows/unknown.
     Returns a compact dict with severity, findings, and log path.
     """
     import subprocess
@@ -436,9 +436,9 @@ def _run_vm_config_check(path: str, os_type: str = None, cleanup: bool = False) 
         detected = detect_os(path)
         resolved = os_type if os_type in ("windows", "linux") else detected
         if resolved == "linux":
-            skill_script = Path(__file__).parent.parent / "skills" / "check-linux-vm-config" / "check_linux_vm_config.py"
+            skill_script = Path(__file__).parent.parent / "skills" / "validate-linux-vm-config" / "validate_linux_vm_config.py"
         else:
-            skill_script = Path(__file__).parent.parent / "skills" / "check-windows-vm-config" / "check_windows_vm_config.py"
+            skill_script = Path(__file__).parent.parent / "skills" / "validate-windows-vm-config" / "validate_windows_vm_config.py"
         result = subprocess.run(
             ["python3", str(skill_script), path],
             capture_output=True, text=True, encoding="utf-8", timeout=30,

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Check Linux VM YAML configuration against rules/linux-vm-checks.yaml.
-Usage: python3 check_linux_vm_config.py <customer-vm.yaml>
-Add new checks by editing rules/linux-vm-checks.yaml — no Python change needed.
+Validate Linux VM YAML configuration against linux-vm-validation.yaml.
+Usage: python3 validate_linux_vm_config.py <customer-vm.yaml>
+Add new checks by editing linux-vm-validation.yaml — no Python change needed.
 """
 import os
 import sys
@@ -18,9 +18,8 @@ except ImportError:
     sys.exit(1)
 
 
-RULES_DIR   = Path(__file__).parent.parent.parent / "rules"
 LOGS_DIR    = Path(os.environ.get("PERFX_LOGS_DIR", Path(__file__).parent.parent.parent / "logs"))
-CHECKS_FILE = RULES_DIR / "linux-vm-checks.yaml"
+CHECKS_FILE = Path(__file__).parent / "linux-vm-validation.yaml"
 
 
 def _load(path):

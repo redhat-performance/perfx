@@ -432,4 +432,4 @@ ps -eaf |grep qemu-kvm |sed -e 's/,/ /g' |xargs -n1 |grep hv- | sort | uniq -c
 
 - **VM configuration**: `methodology/vm-tuning-guide.md` — Steps 2, 5, 6, 12, 16, 17
 - **Vmexit analysis**: `methodology/vmexit-analysis.md` — HLT, EPT_VIOLATION, EXTERNAL_INTERRUPT
-- **VM config checks**: `/check-windows-vm-config`, `/check-linux-vm-config` — validate ioThreads, blockMultiQueue
+- **VM config validation**: `/validate-windows-vm-config`, `/validate-linux-vm-config` — validate ioThreads, blockMultiQueue

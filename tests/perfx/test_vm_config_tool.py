@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import perfx.vm_config_tool as vm_mod
-from perfx.vm_config_tool import check_vm_config, check_linux_vm_config, detect_os, _save_report
+from perfx.vm_config_tool import check_vm_config, validate_linux_vm_config, detect_os, _save_report
 
 
 # ---------------------------------------------------------------------------
@@ -240,15 +240,15 @@ class TestCheckVmConfigInvalidYaml:
 
 
 # ---------------------------------------------------------------------------
-# check_linux_vm_config tests
+# validate_linux_vm_config tests
 # ---------------------------------------------------------------------------
 
-class TestCheckLinuxVmConfigPass:
+class TestValidateLinuxVmConfigPass:
     def test_full_yaml_passes_disk_and_network(self, tmp_path, monkeypatch):
         monkeypatch.setattr(vm_mod, "LOGS_DIR", tmp_path / "logs")
         f = tmp_path / "linux.yaml"
         f.write_text(LINUX_FULL_YAML)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         assert "error" not in result
         assert result["vm_name"] == "linux-test-vm"
         # Disk and network rows should show OK
@@ -259,18 +259,18 @@ class TestCheckLinuxVmConfigPass:
         monkeypatch.setattr(vm_mod, "LOGS_DIR", tmp_path / "logs")
         f = tmp_path / "linux.yaml"
         f.write_text(LINUX_FULL_YAML)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         for key in REQUIRED_KEYS:
             assert key in result
 
 
-class TestCheckLinuxVmConfigWrongDiskBus:
+class TestValidateLinuxVmConfigWrongDiskBus:
     def test_wrong_disk_bus_flagged(self, tmp_path, monkeypatch):
         monkeypatch.setattr(vm_mod, "LOGS_DIR", tmp_path / "logs")
         yaml_text = LINUX_FULL_YAML.replace("bus: virtio", "bus: sata")
         f = tmp_path / "linux.yaml"
         f.write_text(yaml_text)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         assert "error" not in result
         disk_rows = [r for r in result["rows"] if "disk" in r["setting"]]
         assert disk_rows, "Expected at least one disk row"
@@ -278,9 +278,9 @@ class TestCheckLinuxVmConfigWrongDiskBus:
         assert fail_statuses
 
 
-class TestCheckLinuxVmConfigFileNotFound:
+class TestValidateLinuxVmConfigFileNotFound:
     def test_missing_file_returns_error(self, tmp_path):
-        result = check_linux_vm_config(str(tmp_path / "nope.yaml"))
+        result = validate_linux_vm_config(str(tmp_path / "nope.yaml"))
         assert "error" in result
 
 
@@ -412,16 +412,16 @@ class TestCheckVmConfigBiosFirmware:
 # Additional Linux coverage tests
 # ---------------------------------------------------------------------------
 
-class TestCheckLinuxVmConfigInvalidYaml:
+class TestValidateLinuxVmConfigInvalidYaml:
     def test_invalid_yaml_returns_error(self, tmp_path):
         """Invalid YAML → covers lines 253-254."""
         f = tmp_path / "bad.yaml"
         f.write_text("key: [unclosed")
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         assert "error" in result
 
 
-class TestCheckLinuxVmConfigDiskNoBus:
+class TestValidateLinuxVmConfigDiskNoBus:
     def test_disk_without_bus_skipped(self, tmp_path, monkeypatch):
         """Disk entry with no bus field → covers line 278 (continue)."""
         monkeypatch.setattr(vm_mod, "LOGS_DIR", tmp_path / "logs")
@@ -439,14 +439,14 @@ class TestCheckLinuxVmConfigDiskNoBus:
         """)
         f = tmp_path / "linux.yaml"
         f.write_text(yaml_text)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         assert "error" not in result
         # No disk row should be added (skipped)
         disk_rows = [r for r in result["rows"] if "disk" in r["setting"]]
         assert len(disk_rows) == 0
 
 
-class TestCheckLinuxVmConfigMissingResources:
+class TestValidateLinuxVmConfigMissingResources:
     def test_missing_cpu_requests_flagged(self, tmp_path, monkeypatch):
         """No cpu/memory requests → covers lines 293, 302."""
         monkeypatch.setattr(vm_mod, "LOGS_DIR", tmp_path / "logs")
@@ -464,7 +464,7 @@ class TestCheckLinuxVmConfigMissingResources:
         """)
         f = tmp_path / "linux.yaml"
         f.write_text(yaml_text)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         assert "error" not in result
         req_rows = [r for r in result["rows"] if "requests" in r["setting"]]
         assert req_rows
@@ -493,7 +493,7 @@ class TestCheckVmConfigNicModel:
         """)
         f = tmp_path / "vm.yaml"
         f.write_text(yaml_text)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         nic_rows = [r for r in result["rows"] if "model" in r["setting"]]
         assert nic_rows
         assert any("❌" in r["status"] for r in nic_rows)
@@ -514,7 +514,7 @@ class TestCheckVmConfigNicModel:
         """)
         f = tmp_path / "vm.yaml"
         f.write_text(yaml_text)
-        result = check_linux_vm_config(str(f))
+        result = validate_linux_vm_config(str(f))
         nic_rows = [r for r in result["rows"] if "model" in r["setting"]]
         assert nic_rows
         assert all("✅" in r["status"] for r in nic_rows)

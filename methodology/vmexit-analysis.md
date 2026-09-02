@@ -246,7 +246,7 @@ bcdedit /deletevalue useplatformclock
 
 ## Integration with PerfX Skills
 
-- **VM config checks**: `/check-windows-vm-config` and `/check-linux-vm-config` validate clock settings
+- **VM config validation**: `/validate-windows-vm-config` and `/validate-linux-vm-config` validate clock settings
 - **VM tuning guide**: `methodology/vm-tuning-guide.md` — Steps 9-10 for Windows clock configuration
 - **IO analysis**: `/io-analysis` — correlate vmexit with block I/O metrics from domstats
 
