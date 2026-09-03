@@ -10,7 +10,7 @@ PerfX is an agentic tool that encodes performance expertise into structured, reu
 ## Setup
 
 ```bash
-cd PerfX
+cd perfx
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
