@@ -33,3 +33,4 @@ Validate Windows VM YAML configuration against validation rules.
 
 - For Linux VMs use `skills/validate-linux-vm-config/`
 - Corrected YAML is valid YAML-only — apply with `oc apply -f <yaml_file>`
+- **MSSQL balloon consideration**: For VMs running SQL Server (MSSQL), `autoattachMemBalloon` must be `false`. SQL Server manages its own memory pool aggressively via its buffer pool — an in-memory cache of data and index pages. When the virtio-balloon driver reclaims guest memory, the guest OS evicts pages from SQL Server's buffer pool, forcing expensive disk re-reads and degrading query performance. This also applies to other memory-intensive workloads that pre-allocate large regions (Java heaps, in-memory databases). The validation script flags this as a critical failure.

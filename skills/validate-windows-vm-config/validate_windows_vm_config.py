@@ -3,6 +3,19 @@
 Validate Windows VM YAML configuration against windows-vm-validation.yaml.
 Usage: python3 validate_windows_vm_config.py <customer-vm.yaml>
 Add new checks by editing windows-vm-validation.yaml — no Python change needed.
+
+MSSQL memory balloon note
+--------------------------
+The autoattachMemBalloon check is critical for SQL Server (MSSQL) VMs.
+SQL Server manages its own memory pool aggressively through its buffer pool,
+which caches data and index pages in RAM. When the virtio-balloon driver
+reclaims guest memory, the guest OS evicts pages from this buffer pool,
+forcing SQL Server to re-read data from disk. This causes buffer pool
+evictions, increased disk I/O, and degraded query performance. The same
+concern applies to any workload that pre-allocates or pins large memory
+regions (e.g. Java heaps, in-memory databases). The rule in
+windows-vm-validation.yaml enforces autoattachMemBalloon: false to prevent
+this scenario.
 """
 import os
 import sys
