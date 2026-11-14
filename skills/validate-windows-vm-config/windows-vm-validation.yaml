@@ -10,7 +10,17 @@ checks:
     label: autoattachMemBalloon
     section: devices
     fix: true
-    message: "must be false for MSSQL"
+    message: "must be false — memory balloon conflicts with workloads that manage their own memory pool"
+    # MSSQL-specific note: SQL Server manages its own memory pool aggressively
+    # via its buffer pool (an in-memory cache of data/index pages). When the
+    # virtio-balloon driver reclaims guest memory, the guest OS evicts pages
+    # from SQL Server's buffer pool. This forces SQL Server to re-read pages
+    # from disk, causing a spike in disk I/O and degraded query performance.
+    # The same applies to any application that pins or pre-allocates large
+    # memory regions (e.g. Java heaps, in-memory databases). For SQL Server
+    # VMs this is critical because the buffer pool is the primary performance
+    # lever — evicting it is equivalent to flushing the query cache.
+    # Reference: https://developers.redhat.com/blog/2026/05/06/best-practice-configuration-and-tuning-linux-and-windows-vms#vm_definition
 
   - path: devices.blockMultiQueue
     expected: true
